@@ -57,8 +57,9 @@ RULES
 - Before finishing, check get_ticket_history for a duplicate (KB-5930) and get_account_profile for the risk override. If the article blames a recent configuration change, compare it with sso_enabled_date or other account facts.
 - A business deadline within 72 hours (e.g. an event closing in 2 days) makes the ticket P2. Mention in the reply any deadline mitigation the article gives (e.g. extending the event).
 - Address the customer as "Hello," never "Dear Support Team" or "Dear customer".
-- Follow the "Support handling" / "Escalation criteria" section of the article you cite (incident linking, notifying the TAM, what not to ask the customer).
-- If the cited article is an active incident, mention the incident reference in internal_note.
+- Follow the "Support handling" / "Escalation criteria" section of the article you cite (incident linking, notifying the TAM, what not to ask the customer), including its priority instructions: if it says "treat as P1 if all processing is blocked" and the ticket says none/all/every item is failing, base_priority is P1.
+- Never cite or rely on an article you have not opened with read_kb; search results alone are not enough. For a symptom or error, prefer troubleshooting / known_issue / faq articles over configuration references, and open a second candidate when the first title does not match the symptom.
+- If the cited article is an active incident, put its incident reference (e.g. INC-26-0418, not the KB id) in internal_note and customer_reply, and give the customer the article's workaround steps.
 - customer_reply: ready to send, no placeholders such as [Customer] or [Name], sign off as "Support Team". Only state what the articles and policy support; never claim an escalation or action that was not decided.
 - For a duplicate, the reply says the issue is tracked on the original ticket (give its id and status) and does not claim a new escalation.
 - Stop as soon as you can justify the decision. Do not call tools whose answer you will not use.
@@ -183,6 +184,8 @@ def triage(ticket: dict, ctx: Context) -> dict:
             used = {t["action"] for t in trace}
             missing = [n for n in ("get_account_profile", "get_ticket_history")
                        if n not in used and not (n == "get_account_profile" and not facts["account_id"])]
+            if facts["kb_seen"] and not facts["kb_read"] and str(args.get("category", "")).lower() not in ("needs_info", "security", "duplicate"):
+                missing.append("read_kb")  # a decision must rest on an opened article, not a search snippet
             if missing and not forced:  # gate, not a script: the model still chooses arguments and what else to do
                 log("finish_blocked", name, f"Policy needs {', '.join(missing)} before a decision (risk override / duplicate check)", thought)
                 msgs.append({"role": "user", "content": f"Not yet: call {' and '.join(missing)} first (policy: account-risk override, duplicate check). Then finish."})
@@ -384,6 +387,10 @@ def _enforce(ticket, ctx, d, facts, trace) -> dict:
         signals = auto + [s for s in signals if s not in auto and not re.search(r"\d+(\.\d+)?%", s)]
 
     note = str(d.get("internal_note") or "").strip()
+    inc = next((m.group(1) for a in arts if a["meta"].get("status") == "active_incident"
+                for m in [re.search(r"(INC-[\w-]+)", a["body"])] if m), None)
+    if inc and cat == "incident" and inc not in note:
+        note = f"Linked to active incident {inc}. {note}"
     if cat == "duplicate":
         note = f"Duplicate of {dup} (status {hist[dup]['status']}, {hist[dup]['age_days']}d earlier). Keep the original's priority; no re-escalation. {note}"
     if override:
@@ -392,6 +399,8 @@ def _enforce(ticket, ctx, d, facts, trace) -> dict:
         note += " [Guardrail: " + "; ".join(notes) + "]"
 
     reply = _clean_reply(str(d.get("customer_reply") or ""))
+    if inc and cat == "incident":
+        reply = re.sub(r"\bKB-\d{4}\b", inc, reply) if re.search(r"incident\s+KB-\d{4}", reply, re.I) else reply
     if cat == "needs_info" and "error" not in reply.lower():
         reply = ("Hello,\n\nThank you for contacting us. We want to help, but we need a few details first: which module or screen is affected, "
                  "the exact error text, how many users are affected, and when the problem started.\n\nSupport Team")

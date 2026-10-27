@@ -2,6 +2,7 @@
 
 Supported out of the box:
   LLM_PROVIDER=ollama     free, local (https://ollama.com) - no API key needed
+  LLM_PROVIDER=gemini     Google AI Studio (free tier). Needs GEMINI_API_KEY, no extra package
   LLM_PROVIDER=anthropic  needs ANTHROPIC_API_KEY and `pip install anthropic`
   LLM_PROVIDER=openai     needs OPENAI_API_KEY and `pip install openai`
 
@@ -10,6 +11,8 @@ You may replace this file, add native tool calling, or use a framework
 """
 import json
 import os
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -27,7 +30,8 @@ class LLMClient:
     def __init__(self, provider: str | None = None, model: str | None = None):
         self.provider = (provider or os.getenv("LLM_PROVIDER", "ollama")).lower()
         self.model = model or os.getenv("LLM_MODEL", {
-            "ollama": "llama3.1:8b", "anthropic": "claude-sonnet-4-5", "openai": "gpt-4o-mini"}[self.provider])
+            "ollama": "llama3.1:8b", "anthropic": "claude-sonnet-4-5", "openai": "gpt-4o-mini",
+            "gemini": "gemini-2.5-flash"}[self.provider])
         self.calls = 0  # simple counter you can report for cost/latency
 
     def chat(self, messages: list[dict], system: str | None = None, max_tokens: int = 1024,
@@ -56,4 +60,28 @@ class LLMClient:
             req = urllib.request.Request(f"{host}/api/chat", data=body, headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=600) as r:
                 return json.loads(r.read())["message"]["content"]
+        if self.provider == "gemini":  # Google AI Studio free tier via its OpenAI-compatible endpoint (no SDK needed)
+            key = os.getenv("GEMINI_API_KEY")
+            if not key:
+                raise RuntimeError("GEMINI_API_KEY is not set (put it in .env; never commit that file)")
+            host = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai")
+            msgs = ([{"role": "system", "content": system}] if system else []) + messages
+            body = json.dumps({"model": self.model, "messages": msgs, "max_tokens": max_tokens,
+                               "temperature": temperature}).encode()
+            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {key}"}
+            for attempt in range(6):  # free tier is rate limited: back off and retry on 429 / 5xx
+                req = urllib.request.Request(f"{host}/chat/completions", data=body, headers=headers)
+                try:
+                    with urllib.request.urlopen(req, timeout=120) as r:
+                        return json.loads(r.read())["choices"][0]["message"]["content"] or ""
+                except urllib.error.HTTPError as e:
+                    if e.code in (429, 500, 502, 503, 504) and attempt < 5:
+                        time.sleep(min(60, 5 * 2 ** attempt))
+                        continue
+                    raise RuntimeError(f"Gemini API error {e.code}: {e.read().decode(errors='replace')[:300]}") from None
+                except urllib.error.URLError:
+                    if attempt < 5:
+                        time.sleep(5 * (attempt + 1))
+                        continue
+                    raise
         raise ValueError(f"Unknown LLM_PROVIDER: {self.provider}")
