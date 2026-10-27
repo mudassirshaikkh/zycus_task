@@ -1,0 +1,82 @@
+{
+  "ticket_id": "TKT-119877",
+  "account_id": "ACC-2431",
+  "category": "needs_info",
+  "priority": "P2",
+  "route_to": "L1_support",
+  "escalate": true,
+  "notify_tam": true,
+  "duplicate_of": null,
+  "needs_clarification": true,
+  "kb_references": [
+    "KB-5638"
+  ],
+  "account_signals": [
+    "Premium tier, renewal in 61 days",
+    "2 open escalation(s)",
+    "Active users -49.1% over 3 months",
+    "SSO last enabled/reconfigured 2021-07-22",
+    "Account-risk override applied (KB-2914): priority raised, TAM notified",
+    "Account at risk: renewal < 90 days",
+    "2 open escalations"
+  ],
+  "customer_reply": "Hello,\n\nThank you for contacting us. We want to help, but we need a few details first: which module or screen is affected, the exact error text, how many users are affected, and when the problem started.\n\nSupport Team",
+  "internal_note": "Customer reports slow approval notifications. Account is at risk (renewal < 90d, active users down, 2 open escalations). Notify TAM. Requesting specific examples to differentiate between configuration issues (KB-5638) and potential performance degradation. [Account-risk override applied: priority raised one level (max P2), escalated, TAM notified.]",
+  "confidence": 0.9,
+  "reasoning_trace": [
+    {
+      "step": 1,
+      "action": "load_policy",
+      "input": "KB-2914,KB-5930,KB-6401",
+      "observation": "Priority/escalation, duplicate and data-exposure policies loaded into context"
+    },
+    {
+      "step": 2,
+      "action": "lookup_account",
+      "input": "{\"domain\": \"pinecrest-logistics.example\"}",
+      "observation": "ACC-2431 Pinecrest Logistics (exact domain)",
+      "thought": "Resolving account and checking for existing issues before determining if this is a configuration question or a performance incident."
+    },
+    {
+      "step": 3,
+      "action": "get_account_profile",
+      "input": "{\"account_id\": \"ACC-2431\"}",
+      "observation": "Pinecrest Logistics: Premium, renewal in 61d, escalations=2, active users 3m change=-49.1%, risk_override=True",
+      "thought": "Checking account profile for risk factors and ticket history for duplicates or known performance issues."
+    },
+    {
+      "step": 4,
+      "action": "get_ticket_history",
+      "input": "{\"account_id\": \"ACC-2431\", \"module\": \"eProcurement\", \"ticket_id\": \"TKT-119877\"}",
+      "observation": "2 earlier tickets in 30d; duplicate candidates=none",
+      "thought": "The account is at risk (renewal < 90 days, active users down > 25%, 2 open escalations). I need to check if there are existing tickets regarding eProcurement performance to see if this is a known issue or a configuration question."
+    },
+    {
+      "step": 5,
+      "action": "search_kb",
+      "input": "{\"query\": \"slow approval purchase order\", \"module\": \"eProcurement\"}",
+      "observation": "KB-4889 [current] Release notes 26.1; KB-5796 [current] FAQ: Does the purchase order support multiple currencies?; KB-4115 [current] E-1281: Purchase order does not trigger; KB-2495 [current] E-1243: Purchase order stays stuck in processing; KB-9666 [current] E-1287: Purchase order creates duplicate records; KB-4577 [current] FAQ: Why does the purchase order show a different status for some users?",
+      "thought": "The customer is asking about slow approval notifications in eProcurement. This is likely a configuration or performance tuning question. I will search the KB for 'slow approval' or 'eProcurement performance' to see if there are standard settings or troubleshooting steps."
+    },
+    {
+      "step": 6,
+      "action": "search_kb",
+      "input": "{\"query\": \"approval workflow performance\", \"module\": \"eProcurement\"}",
+      "observation": "KB-2867 [current] E-1115: Approval workflow times out; KB-1589 [current] FAQ: How long is approval workflow history retained?; KB-4889 [current] Release notes 26.1; KB-4084 [current] Release notes 26.2.3; KB-5638 [current] How to: Configure approval workflow levels; KB-5563 [current] Configuration reference: Approval workflow numbering",
+      "thought": "None of the search results directly address 'slow' approvals. I will search for 'approval workflow performance' or 'approval notification delay' to find relevant troubleshooting steps."
+    },
+    {
+      "step": 7,
+      "action": "finish",
+      "input": "category=needs_info",
+      "observation": "The customer is reporting a performance issue (slow approvals). Since no specific error code is provided and the issue is vague, I need to gather more information to determine if this is a configuration issue or a system performance problem. I will classify this as 'needs_info' and ask for specific ",
+      "thought": "The customer is reporting a performance issue (slow approvals). Since no specific error code is provided and the issue is vague, I need to gather more information to determine if this is a configuration issue or a system performance problem. I will classify this as 'needs_info' and ask for specific examples to investigate further."
+    },
+    {
+      "step": 8,
+      "action": "apply_policy",
+      "input": "category=needs_info, base_priority=P3, override=True",
+      "observation": "final priority=P2, route=L1_support, escalate=True, notify_tam=True"
+    }
+  ]
+}

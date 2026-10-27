@@ -1,0 +1,80 @@
+{
+  "ticket_id": "TKT-160477",
+  "account_id": "ACC-1633",
+  "category": "how_to",
+  "priority": "P3",
+  "route_to": "L1_support",
+  "escalate": false,
+  "notify_tam": false,
+  "duplicate_of": null,
+  "needs_clarification": false,
+  "kb_references": [
+    "KB-1786"
+  ],
+  "account_signals": [
+    "Standard tier, renewal in 240 days",
+    "Active users +4.9% over 3 months",
+    "Standard tier",
+    "No open escalations",
+    "Renewal > 90 days"
+  ],
+  "customer_reply": "Hello,\n\nThe error E-2207 indicates that the integration credentials used for your e-signature requests have expired. This is a configuration setting that can be updated by your system administrator.\n\nPlease follow these steps to resolve the issue:\n1. Navigate to Admin > Integrations > Credentials.\n2. Regenerate the credential and update it in your connected e-signature system.\n3. Trigger a manual sync and confirm the job status shows 'Completed'.\n\nIf you continue to experience issues after performing these steps, please let us know and provide the affected record IDs so we can investigate further.\n\nSupport Team",
+  "internal_note": "Issue identified as expired integration credentials (KB-1786). Customer can resolve via Admin console. P3 priority assigned as it is a configuration task.",
+  "confidence": 1.0,
+  "reasoning_trace": [
+    {
+      "step": 1,
+      "action": "load_policy",
+      "input": "KB-2914,KB-5930,KB-6401",
+      "observation": "Priority/escalation, duplicate and data-exposure policies loaded into context"
+    },
+    {
+      "step": 2,
+      "action": "lookup_account",
+      "input": "{\"domain\": \"frostline-retail-group.example\"}",
+      "observation": "ACC-1633 Frostline Retail Group (exact domain)",
+      "thought": "Resolving account and checking for known issues related to E-2207 in the Contracts module."
+    },
+    {
+      "step": 3,
+      "action": "search_kb",
+      "input": "{\"query\": \"E-2207\", \"module\": \"Contracts\"}",
+      "observation": "KB-2605 [deprecated] [DEPRECATED] E-2207: E-signature request is rejected; KB-1786 [current] E-2207: E-signature request is rejected; KB-3985 [active_incident] KNOWN ISSUE: Invoice OCR jobs fail with E-4102 after release 26.2.3; KB-1042 [current] E-2159: Renewal alert shows incorrect values; KB-2373 [current] FAQ: Can we export obligation tracker data on a schedule?; KB-2426 [current] E-2185: Contract template creates duplicate records",
+      "thought": "Searching for the error code E-2207 in the Contracts module to understand the issue."
+    },
+    {
+      "step": 4,
+      "action": "read_kb",
+      "input": "{\"article_id\": \"KB-1786\"}",
+      "observation": "KB-1786 [current] E-2207: E-signature request is rejected; related=['KB-2914']",
+      "thought": "Reading the current KB article for E-2207 to understand the resolution steps."
+    },
+    {
+      "step": 5,
+      "action": "get_ticket_history",
+      "input": "{\"account_id\": \"ACC-1633\", \"ticket_id\": \"TKT-160477\"}",
+      "observation": "0 earlier tickets in 30d; duplicate candidates=none",
+      "thought": "The issue is a configuration error (expired credentials) that the customer can resolve themselves. I need to check for duplicates and account risk before finishing."
+    },
+    {
+      "step": 6,
+      "action": "get_account_profile",
+      "input": "{\"account_id\": \"ACC-1633\"}",
+      "observation": "Frostline Retail Group: Standard, renewal in 240d, escalations=0, active users 3m change=4.9%, risk_override=False",
+      "thought": "No duplicates found. The issue is a configuration error (expired credentials) which is a how-to/configuration task for the customer. Priority is P3 per policy (single user/record affected, workaround available). No account risk override needed as no escalations or renewal data provided in history/profile (will check profile now to be sure)."
+    },
+    {
+      "step": 7,
+      "action": "finish",
+      "input": "category=how_to",
+      "observation": "The issue is a configuration error (expired credentials) that the customer can resolve themselves. Priority is P3 as it is a configuration issue with a documented resolution. No account risk override applies.",
+      "thought": "The issue is a configuration error (expired credentials) that the customer can resolve themselves. Priority is P3 as it is a configuration issue with a documented resolution. No account risk override applies."
+    },
+    {
+      "step": 8,
+      "action": "apply_policy",
+      "input": "category=how_to, base_priority=P3, override=False",
+      "observation": "final priority=P3, route=L1_support, escalate=False, notify_tam=False"
+    }
+  ]
+}

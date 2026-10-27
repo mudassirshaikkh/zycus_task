@@ -1,0 +1,73 @@
+{
+  "ticket_id": "TKT-192732",
+  "account_id": "ACC-6031",
+  "category": "duplicate",
+  "priority": "P3",
+  "route_to": "L1_support",
+  "escalate": false,
+  "notify_tam": false,
+  "duplicate_of": "TKT-122022",
+  "needs_clarification": false,
+  "kb_references": [
+    "KB-5930"
+  ],
+  "account_signals": [
+    "Enterprise tier, renewal in 46 days",
+    "Active users -4.3% over 3 months",
+    "SSO last enabled/reconfigured 2024-01-12",
+    "Open ticket TKT-122022 for the same module/error within 7 days",
+    "Duplicate ticket detected for error E-6105 in Spend Analytics"
+  ],
+  "customer_reply": "Hello,\n\nThank you for following up. This issue is already being tracked on your earlier ticket TKT-122022 (current status: open), so we will keep all updates there rather than open a new case.\n\nSupport Team",
+  "internal_note": "Duplicate of TKT-122022 (status open, 2.1d earlier). Keep the original's priority; no re-escalation. Duplicate of TKT-122022. No risk override applies. No further action required on this ticket.",
+  "confidence": 1.0,
+  "reasoning_trace": [
+    {
+      "step": 1,
+      "action": "load_policy",
+      "input": "KB-2914,KB-5930,KB-6401",
+      "observation": "Priority/escalation, duplicate and data-exposure policies loaded into context"
+    },
+    {
+      "step": 2,
+      "action": "lookup_account",
+      "input": "{\"domain\": \"riverbend-health.example\"}",
+      "observation": "ACC-6031 Riverbend Health (exact domain)",
+      "thought": "Resolving account and checking history for duplicate tickets regarding error E-6105 in Spend Analytics."
+    },
+    {
+      "step": 3,
+      "action": "get_ticket_history",
+      "input": "{\"account_id\": \"ACC-6031\", \"module\": \"Spend Analytics\", \"error_code\": \"E-6105\", \"ticket_id\": \"TKT-192732\"}",
+      "observation": "3 earlier tickets in 30d; duplicate candidates=['TKT-122022']",
+      "thought": "Checking ticket history for duplicates and searching for error E-6105 in Spend Analytics."
+    },
+    {
+      "step": 4,
+      "action": "finish_blocked",
+      "input": "finish",
+      "observation": "Policy needs get_account_profile before a decision (risk override / duplicate check)",
+      "thought": "The ticket is a duplicate of TKT-122022, which is open and concerns the same error code (E-6105) in the same module (Spend Analytics). I will mark this as a duplicate."
+    },
+    {
+      "step": 5,
+      "action": "get_account_profile",
+      "input": "{\"account_id\": \"ACC-6031\"}",
+      "observation": "Riverbend Health: Enterprise, renewal in 46d, escalations=0, active users 3m change=-4.3%, risk_override=False",
+      "thought": "Checking account profile to determine if risk override applies, as required by policy before finalizing the duplicate decision."
+    },
+    {
+      "step": 6,
+      "action": "finish",
+      "input": "category=duplicate",
+      "observation": "Account profile confirms no risk override applies (renewal is 46 days away, but active user decline is only 4.3% and there are 0 open escalations). The ticket remains a duplicate of TKT-122022.",
+      "thought": "Account profile confirms no risk override applies (renewal is 46 days away, but active user decline is only 4.3% and there are 0 open escalations). The ticket remains a duplicate of TKT-122022."
+    },
+    {
+      "step": 7,
+      "action": "apply_policy",
+      "input": "category=duplicate, base_priority=P3, override=False",
+      "observation": "final priority=P3, route=L1_support, escalate=False, notify_tam=False"
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "ticket_id": "TKT-169327",
+  "account_id": "ACC-4850",
+  "category": "how_to",
+  "priority": "P3",
+  "route_to": "L1_support",
+  "escalate": false,
+  "notify_tam": false,
+  "duplicate_of": null,
+  "needs_clarification": false,
+  "kb_references": [
+    "KB-7072"
+  ],
+  "account_signals": [
+    "Enterprise tier, renewal in 320 days",
+    "Active users -41.7% over 3 months",
+    "No open escalations"
+  ],
+  "customer_reply": "Hello,\n\nThank you for reaching out. The error E-5214 you are encountering on the supplier onboarding form is caused by a paused background scheduler job. \n\nYou can resolve this by following these steps:\n1. Navigate to Admin > Scheduler in your portal.\n2. Locate the paused job.\n3. Resume the job and run it once manually.\n\nDownstream records should update within 15 minutes. If the issue persists after performing these steps, please let us know and provide the affected record ID so we can investigate further.\n\nSupport Team",
+  "internal_note": "Issue identified as a configuration task per KB-7072. Customer admin can resolve by resuming the scheduler job. No duplicate tickets found.",
+  "confidence": 1.0,
+  "reasoning_trace": [
+    {
+      "step": 1,
+      "action": "load_policy",
+      "input": "KB-2914,KB-5930,KB-6401",
+      "observation": "Priority/escalation, duplicate and data-exposure policies loaded into context"
+    },
+    {
+      "step": 2,
+      "action": "lookup_account",
+      "input": "{\"domain\": \"ironleaf-foods-europe.example\"}",
+      "observation": "ACC-4850 Ironleaf Foods Europe (exact domain)",
+      "thought": "Resolving account and searching for error code E-5214 in Supplier Management to determine the nature of the issue."
+    },
+    {
+      "step": 3,
+      "action": "search_kb",
+      "input": "{\"query\": \"E-5214\", \"module\": \"Supplier Management\"}",
+      "observation": "KB-7072 [current] E-5214: Supplier onboarding form returns a validation error; KB-3985 [active_incident] KNOWN ISSUE: Invoice OCR jobs fail with E-4102 after release 26.2.3; KB-1123 [current] FAQ: Can a certificate expiry alert be restored after deletion?; KB-1212 [current] E-5104: Supplier onboarding form is rejected; KB-1467 [current] E-5370: Compliance document shows incorrect values; KB-1678 [current] FAQ: Why is the supplier profile slower for large business units?",
+      "thought": "Searching for error code E-5214 in the Supplier Management module to understand the issue and determine if it's a known bug or configuration issue."
+    },
+    {
+      "step": 4,
+      "action": "read_kb",
+      "input": "{\"article_id\": \"KB-7072\"}",
+      "observation": "KB-7072 [current] E-5214: Supplier onboarding form returns a validation error; related=['KB-2914']",
+      "thought": "Reading KB-7072 to understand the fix for E-5214 and checking account profile for risk override."
+    },
+    {
+      "step": 5,
+      "action": "get_account_profile",
+      "input": "{\"account_id\": \"ACC-4850\"}",
+      "observation": "Ironleaf Foods Europe: Enterprise, renewal in 320d, escalations=0, active users 3m change=-41.7%, risk_override=False",
+      "thought": "The issue is a configuration/admin task (KB-7072). I need to check for duplicates and account risk before finishing. I will also check the account profile to see if the risk override applies."
+    },
+    {
+      "step": 6,
+      "action": "get_ticket_history",
+      "input": "{\"account_id\": \"ACC-4850\", \"ticket_id\": \"TKT-169327\", \"module\": \"Supplier Management\", \"error_code\": \"E-5214\"}",
+      "observation": "2 earlier tickets in 30d; duplicate candidates=none",
+      "thought": "The issue is a known configuration task (KB-7072). The account risk override does not apply (renewal is > 90 days). I will check for duplicates before finishing."
+    },
+    {
+      "step": 7,
+      "action": "finish",
+      "input": "category=how_to",
+      "observation": "The issue is a known configuration task (KB-7072) that the customer's admin can resolve. No duplicates found. Priority is P3 as it is a function impairment with a documented workaround.",
+      "thought": "The issue is a known configuration task (KB-7072) that the customer's admin can resolve. No duplicates found. Priority is P3 as it is a function impairment with a documented workaround."
+    },
+    {
+      "step": 8,
+      "action": "apply_policy",
+      "input": "category=how_to, base_priority=P3, override=False",
+      "observation": "final priority=P3, route=L1_support, escalate=False, notify_tam=False"
+    }
+  ]
+}
