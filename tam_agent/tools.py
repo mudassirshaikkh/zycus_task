@@ -160,6 +160,8 @@ class Toolbox:
                 s += 2.5
             if m.get("type") == "policy":
                 s += 1
+            if m.get("type") in ("troubleshooting", "known_issue", "faq"):
+                s += 2  # a symptom is better served by a fix article than by a configuration reference
             if m.get("status") == "active_incident":
                 s += 3
             out.append((s, a))
