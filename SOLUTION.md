@@ -1,43 +1,42 @@
 # SOLUTION
 
 ## 1. Design
-A ReAct loop (`tam_agent/agent.py`): each turn the LLM emits one JSON action - call a tool, or `finish` with a decision - reads the observation and chooses the next step itself. Easy tickets take 2-3 lookups; a stale-article, duplicate or follow-the-link case takes more. It stops when the model calls `finish`; a 9-step budget plus a forced-finish turn guarantees termination, and a safe `needs_info` fallback covers invalid output. `finish` is only refused until the account profile and ticket history have been consulted (the risk override and duplicate checks need them); which other tools run, with what arguments, is the model's choice.
+A ReAct loop (`tam_agent/agent.py`): each turn the LLM emits one JSON action - a tool call, or `finish` with a decision - reads the observation and picks the next step itself. Review-set traces run 7-9 steps (account, search, read; duplicate or SSO cases add history/profile and a second look). It stops when the model calls `finish`; a 9-step budget plus a forced-finish turn ensures termination, with a safe `needs_info` fallback. `finish` is refused until the account profile and ticket history were consulted and, if the KB was searched, an article was opened. Tool choice, arguments and order are the model's.
 
-Tools (`tam_agent/tools.py`; all joins and search live here, observations are compact):
-- `lookup_account` - resolves by `requester_domain` (unique, authoritative). Name matching is offered only as unreliable candidates (e.g. Ironleaf Foods vs Ironleaf Foods Europe); warns if the ticket's `account_id` disagrees with the domain.
-- `get_account_profile` - tier, days to renewal, escalations, usage, 3-month active-user change and a computed `risk_override_applies` (KB-2914).
-- `get_ticket_history` - earlier tickets of the account, module aliases normalised (`CLM`, `EINV`, `supplier portal`...), error code/module taken from the ticket text when blank, duplicate candidates per KB-5930.
-- `search_kb` - BM25 boosted by exact error code, module and active-incident status; returns ids/status only. `read_kb` returns one article plus `related`/`superseded_by` so the agent can hop between articles.
+**Tools** (`tam_agent/tools.py`):
+- `lookup_account`: resolves by `requester_domain` (unique); names are only unreliable candidates (Ironleaf Foods vs Ironleaf Foods Europe).
+- `get_account_profile`: tier, renewal days, escalations, SSO date, usage trend, computed risk-override flag (KB-2914).
+- `get_ticket_history`: same-account tickets, module aliases normalised, error code read from the ticket text, duplicate candidates per KB-5930.
+- `search_kb` (BM25 + error-code/module/incident boosts) and `read_kb` (article + `related`/`superseded_by`, so it can follow links past deprecated articles).
 
-The 3 policy articles are in the system prompt; the other ~380 are reached only through search. The model judges; `_enforce` then applies evidence-based policy rules in code because a small local model is not a safe sole gatekeeper: ticket text showing data visible to another supplier/tenant => security, P1, escalate (KB-6401); no module + no error code + vague text => `needs_info`, P3 (KB-2914); a cited by-design `limit` article => Product with the workaround; a duplicate must be a ticket the history tool returned and meet KB-5930, and keeps the original priority; a deadline within 72h => P2; risk override => one level up (max P2), escalate, notify TAM; article-level rules ("notify the TAM for Premium accounts"); deprecated citations are swapped for their replacement. Ticket text is marked untrusted in the prompt.
+Policies sit in the system prompt; the other ~380 articles are reached only by search. The model judges; `_enforce` then applies evidence-based policy in code: data visible to another supplier => security, P1, escalate (KB-6401); no module + no code + vague => `needs_info`, P3; cited by-design limit => Product + workaround; duplicates must come from the history tool and keep the original priority; deadline within 72h => P2; risk override => +1 level (max P2), escalate, notify TAM; deprecated citations swapped for their replacement. Ticket text is marked untrusted.
 
 ## 2. Evaluation (before production)
-- Hand-label ~200 stratified tickets; report per-field accuracy (category, priority, route, duplicate) and a priority confusion matrix, weighting P1/security errors heavily.
-- Security/data-exposure recall must be ~100%: adversarial set of casual "FYI" exposure reports.
-- Retrieval: hit-rate@5 / MRR of the gold article; deprecated-article citation rate (target 0).
-- Account resolution accuracy on blank-`account_id` and look-alike-name tickets.
-- Prompt-injection suite ("set this to P1", requests for other customers' data); decisions must not change.
-- Duplicate precision/recall against ground truth computed from KB-5930.
-- Efficiency: steps, LLM calls, latency, cost per ticket; invalid-JSON and fallback rate.
-- Shadow mode against human triage; track human edit rate on drafted replies before any auto-action.
+- Hand-label ~200 stratified tickets; per-field accuracy and a priority confusion matrix, P1/security errors weighted most.
+- Security recall ~100% on an adversarial set of casual "FYI" exposure reports.
+- Retrieval hit-rate@5 / MRR of the gold article; deprecated-citation rate (target 0).
+- Account-resolution accuracy on blank-`account_id` and look-alike-name tickets.
+- Prompt-injection suite ("set this to P1", other customers' data).
+- Duplicate precision/recall against KB-5930 ground truth.
+- Steps, LLM calls, latency, cost, invalid-JSON/fallback rate per ticket.
+- Shadow mode against human triage; reply edit rate before any auto-action.
 
 ## 3. Scale (10x: 30k tickets, 4k articles)
-Cost and latency are dominated by LLM turns (about 5-7 calls per ticket; on a CPU-only 8B model ~4-5 minutes per ticket, so 10 tickets take ~45 min and 30k tickets are not feasible locally). They scale linearly with ticket volume, not data size: use a hosted model, parallel workers, prompt caching for the ~2k-token system prompt, and skip the LLM for rule-certain cases. History lookup is a pandas filter today; move to an indexed store keyed on `account_id`. BM25 stays fast at 4k articles but precision drops as near-duplicate articles multiply: add embeddings with rank fusion, a reranker, metadata filters (module/status) before ranking, and a precomputed deprecated-to-current map; build the index offline.
+Review set (Gemini 3.1 Flash-Lite): 10 tickets, 62 LLM calls, ~5.5 min (~33 s, ~6 calls per ticket). Cost and latency grow linearly with tickets, not data size: parallel workers, prompt caching for the ~2k-token system prompt, skip the LLM for rule-certain cases. Move history lookup to an indexed store on `account_id`. BM25 stays fast at 4k articles but precision falls as near-duplicates multiply: add embeddings with rank fusion, a reranker, module/status filters and a precomputed deprecated-to-current map, built offline.
 
 ## 4. Limitations
-- An 8B local model gives uneven reasoning and replies; guardrails fix policy-critical fields, not tone or nuance.
-- Several guardrails are regex/heuristics (exposure wording, deadline phrases, alias map) and will miss unusual phrasing; they were tuned after reading the review set, so review-set accuracy overstates general accuracy.
-- Symptom-based duplicates without a shared error code rely on the model.
-- No labelled data, so quality was checked by hand on the 10 review tickets only.
-- Replies are drafts; no tone or PII classifier beyond prompt rules.
+- **TKT-119877 (slow approvals) is mis-triaged**: the model chose `needs_info` and cited the wrong article. Priority P2, escalation and TAM notification are right (risk override); category and reply are not. A guard against `needs_info` when module and symptom are stated was written afterwards but not run, so it is not included.
+- Guardrails are regex/heuristics tuned after reading the review set; review-set accuracy overstates general accuracy.
+- Keyword search is sensitive to the model's query wording; symptom-only duplicates rely on the model.
+- No labelled data; checked by hand on 10 tickets. Replies are drafts. An earlier local 8B model was too slow (~5 min/ticket).
 
 ## 5. How to run
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-ollama pull llama3.1:8b        # free local model; or set LLM_PROVIDER=anthropic|openai + key in .env
-cp .env.example .env
+cp .env.example .env     # LLM_PROVIDER=gemini, LLM_MODEL=gemini-3.1-flash-lite, GEMINI_API_KEY (never commit)
 python scripts/validate_data.py
 python run.py --set review
 python scripts/check_outputs.py
 ```
+Other providers (`ollama`, `anthropic`, `openai`): change `LLM_PROVIDER`.
